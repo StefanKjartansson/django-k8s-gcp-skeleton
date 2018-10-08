@@ -1,0 +1,24 @@
+FROM python:3.6-slim
+
+COPY . /app
+WORKDIR /app
+
+RUN pip install --no-index --find-links=/app/wheelhouse -r /app/runtime-requirements.txt \
+    && rm -rf /app/wheelhouse \
+    && rm -rf /app/runtime-requirements.txt \
+    && rm -rf /app/docker \
+    && rm -rf /app/*.txt
+
+EXPOSE 8080
+
+ENV DJANGO_SETTINGS_MODULE=project.settings
+
+# This contents of this key comes from a k8s secret
+ENV GOOGLE_APPLICATION_CREDENTIALS=/etc/keys/trace_key.json
+
+# Configure STACKDRIVER as the trace exporter.
+ENV TRACE_EXPORTER=STACKDRIVER
+
+# PATCH_IMAGE
+
+CMD ["python", "manage.py", "check"]
