@@ -1,0 +1,100 @@
+# This deployment deploys the celery worker
+# It's recommended that more than 1 replica
+# is run at any given time.
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: ${PROJECT_NAME}-worker
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        service: ${PROJECT_NAME}-worker
+    spec:
+      containers:
+        # [START ${PROJECT_NAME}-worker]
+        - name: ${PROJECT_NAME}-worker
+          imagePullPolicy: Always
+          image: gcr.io/${PROJECT_ID}/${PROJECT_NAME}:master
+          # The gunicorn command is kept in the kubernetes config
+          # so that workers can be scaled without any code changes.
+          command: ['celery???']
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${PROJECT_NAME}-secret
+                  key: ${PROJECT_NAME}_secret_key
+            - name: DB_HOST
+              value: sqlproxy-service-${PROJECT_NAME}:5432
+            - name: DB_NAME
+              value: ${PROJECT_NAME}
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cloudsql-db-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cloudsql-db-credentials
+                  key: password
+          volumeMounts:
+            - name: keys
+              mountPath: '/etc/keys'
+              readOnly: true
+        # [END ${PROJECT_NAME}-worker]
+      # [START volumes]
+      volumes:
+        # STACKDRIVER trace keys
+        # The trace keys are used for integrating with
+        # GCP's Stackdriver tracing service.
+        - name: keys
+          secret:
+            secretName: trace-secret
+        # The credentials for cloudsql
+        - name: cloudsql-instance-credentials
+          secret:
+            secretName: cloudsql-instance-credentials
+      # [END volumes]
+      # [START initContainers]
+      initContainers:
+        # [START check]
+        # Check is an init container which runs Django's
+        # check management command. If it fails, the deployment
+        # will stay in pending state.
+        - name: check-${PROJECT_NAME}
+          imagePullPolicy: Always
+          image: gcr.io/${PROJECT_ID}/${PROJECT_NAME}:master
+          command: ['python', 'manage.py', 'check']
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ${PROJECT_NAME}-secret
+                  key: ${PROJECT_NAME}_secret_key
+            - name: DB_HOST
+              value: sqlproxy-service-${PROJECT_NAME}:5432
+            - name: DB_NAME
+              value: ${PROJECT_NAME}
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: cloudsql-db-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cloudsql-db-credentials
+                  key: password
+        # [END check]
+        # [START wait-for-${PROJECT_NAME}]
+        # Waits for ${PROJECT_NAME} to come online
+        # Before starting up, be sure that the web service
+        # has come online since that's the one which runs
+        # migrations.
+        - name: wait-for-${PROJECT_NAME}
+          image: busybox
+          command: ['sh', '-c', 'until nslookup ${PROJECT_NAME}-web-service; do echo waiting for ${PROJECT_NAME}-web-service; sleep 2; done;']
+        # [END wait-for-${PROJECT_NAME}]
