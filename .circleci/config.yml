@@ -1,0 +1,152 @@
+#
+# This configuration requires a few environment variables to be configured in circleci:
+# GCP_AUTH - The base64 encoded content of a GCP json key with the following permissions:
+#   *
+#   *
+# GCP_PROJECT - The id of the GCP project
+# CLUSTER_NAME - Name of the kubernetes cluster
+# CLUSTER_REGION - Name of the kubernetes cluster region
+# PROJECT_NAME - Name of the project, used for containers & k8s.
+#
+# defaults shared between all jobs
+defaults: &defaults
+  working_directory: /app
+
+# attach is here in case anyone else needs to attach as well.
+attach: &attach
+  at: /app
+
+# reusable authenticate block.
+authenticate: &authenticate
+  name: Authenticate
+  command: |
+    echo ${GCP_AUTH} | base64 --decode --ignore-garbage > ${HOME}/gcp-key.json
+    gcloud auth activate-service-account --key-file ${HOME}/gcp-key.json
+    gcloud --quiet config set project ${GCP_PROJECT}
+
+version: 2
+jobs:
+  run_tests:
+    <<: *defaults
+    docker:
+      - image: python:3.6
+      - image: postgres:9
+        environment:
+          POSTGRES_USER: ubuntu
+          POSTGRES_DB: circle_test
+    environment:
+      - CACHE_URL: 'filecache://file.cache'
+      - DATABASE_URL: 'postgres://ubuntu:@localhost/circle_test'
+      - PIP_FIND_LINKS: /app/wheelhouse
+      - PIP_WHEEL_DIR: /app/wheelhouse
+      - SECRET_KEY: 'n0tv3rys3cre3t'
+      - WHEELHOUSE: /app/wheelhouse
+    steps:
+      - checkout
+      # Restores the cached wheelhouse
+      - restore_cache:
+          keys:
+            - be-deps-{{ checksum "requirements.txt" }}-{{ checksum "dev-requirements.txt" }}
+      - run:
+          name: Install Dependencies
+          # Note that runtime requirements are saved for subsequent steps.
+          command: |
+            python3 -m venv env
+            . env/bin/activate
+            pip install --upgrade setuptools pip wheel
+            pip wheel -r requirements.txt
+            pip install --no-index -f $WHEELHOUSE -r requirements.txt
+            pip freeze > runtime-requirements.txt
+            pip wheel -r dev-requirements.txt
+            pip install --no-index -f $WHEELHOUSE -r dev-requirements.txt
+      # Persists the wheelhouse for subsequent builds
+      - save_cache:
+          paths:
+            - wheelhouse
+          key: be-deps-{{ checksum "requirements.txt" }}-{{ checksum "dev-requirements.txt" }}
+      - run:
+          name: Run Unit Tests
+          command: |
+            make test
+      # Static files are by default collected into the "static" folder. If configuration change
+      # is required, the STATIC_ROOT? django setting must also be updated in the persitance step
+      # which follows the static collection step.
+      - run:
+          name: Collect static
+          command: |
+            ./env/bin/python manage.py collectstatic --noinput
+      - persist_to_workspace:
+          root: .
+          paths:
+            - static
+            - wheelhouse
+            - runtime-requirements.txt
+  image:
+    <<: *defaults
+    docker:
+      - image: google/cloud-sdk
+    steps:
+      - checkout
+      - attach_workspace:
+          <<: *attach
+      - run:
+          <<: *authenticate
+      # Slim the container down & prevent auto-discovery packages from scanning modules which
+      # do not have installed dependencies.
+      - run:
+          name: Remove test files
+          command: |
+            find . -name 'tests' -type d|xargs rm -rf
+      - run:
+          name: Generate Dockerfile
+          command: |
+            cat docker/Dockerfile.base |python ./scripts/inject-build-info > Dockerfile
+            cat Dockerfile
+      - run:
+          name: Build Container Image
+          command: |
+            gcloud builds submit \
+              --substitutions _PROJECT_NAME=${PROJECT_NAME},_BUILD_SHA=$CIRCLE_SHA1,_BRANCH=$CIRCLE_BRANCH \
+              --config cloudbuild.yaml .
+  deploy:
+    <<: *defaults
+    docker:
+      - image: google/cloud-sdk
+    steps:
+      - checkout
+      - run:
+          <<: *authenticate
+      - run:
+          name: Generate Kubernetes Deployments
+          command: |
+            mkdir k8s-deploy
+            for filename in ./k8s/*.template; do
+                cat "$filename" |python ./scripts/override-project-info > k8s-deploy/$(basename "$filename" .template).yaml
+            done
+      - run:
+          name: Update deployment
+          command: |
+            gcloud container clusters get-credentials --region="${CLUSTER_REGION}" ${CLUSTER_NAME}
+            kubectl apply -f ./k8s-deploy
+            kubectl set image deployment ${PROJECT_NAME} ${PROJECT_NAME}=gcr.io/${GCP_PROJECT}/${PROJECT_NAME}:$CIRCLE_SHA1
+            kubectl set image deployment ${PROJECT_NAME}-worker ${PROJECT_NAME}-worker=gcr.io/${GCP_PROJECT}/${PROJECT_NAME}:$CIRCLE_SHA1
+
+workflows:
+  version: 2
+  test-deploy:
+    jobs:
+      - run_tests
+      - image:
+          requires:
+            - run_tests
+          filters:
+            branches:
+              only:
+                - master
+      - deploy:
+          requires:
+            - image
+          filters:
+            branches:
+              only:
+                - master
