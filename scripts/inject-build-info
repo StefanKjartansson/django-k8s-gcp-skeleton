@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+"""
+This file injects environment variables from CircleCi into the Dockerfile.
+"""
+
+import fileinput
+import os
+import sys
+
+
+def get_variables():
+    return {
+        'VERSION': os.environ.get('CIRCLE_SHA1', 'latest'),
+        'BRANCH': os.environ.get('CIRCLE_BRANCH', 'unknown'),
+        'BUILD_URL': os.environ.get('CIRCLE_BUILD_URL', 'unknown'),
+        'BUILD_NUM': os.environ.get('CIRCLE_BUILD_NUM', 'unknown'),
+    }
+
+
+def find_replace():
+    d = get_variables()
+    for line in fileinput.input():
+        if line.find('PATCH_IMAGE') > 0:
+            for (k, v) in d.items():
+                yield 'ENV %s=%s\n' % (k, v)
+        else:
+            yield line
+
+
+if __name__ == '__main__':
+    for l in find_replace():
+        sys.stdout.write(l)

@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+"""
+This file injects environment variables from CircleCi into the kubernetes
+configuration files
+"""
+
+import fileinput
+import os
+import sys
+
+
+def make_replacement(key, value):
+    def replace(l):
+        return l.replace('${' + key + '}', value)
+    return replace
+
+
+def build_replacements_cache():
+    return [make_replacement(k, v) for k, v in os.environ.items()]
+
+
+def find_replace():
+    res = build_replacements_cache()
+    for line in fileinput.input():
+        for r in res:
+            line = r(line)
+        yield line
+
+
+if __name__ == '__main__':
+    for l in find_replace():
+        sys.stdout.write(l)
