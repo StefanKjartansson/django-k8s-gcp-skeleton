@@ -1,0 +1,9 @@
+ipython==6.5.0
+mypy==0.620
+pylint-django==2.0
+pylint-plugin-utils==0.4
+pylint==2.0.1
+pytest-cov==2.5.1
+pytest-django==3.3.2
+pytest==3.6.3
+yapf==0.22.0
