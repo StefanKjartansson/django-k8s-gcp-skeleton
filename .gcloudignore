@@ -1,0 +1,9 @@
+.*.
+*.yaml
+docker
+k8s
+Makefile
+README.md
+scripts
+env
+__pycache__
