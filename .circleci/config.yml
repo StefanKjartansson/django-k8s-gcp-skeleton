@@ -127,7 +127,7 @@ jobs:
           command: |
             gcloud container clusters get-credentials --region="${CLUSTER_REGION}" ${CLUSTER_NAME}
             kubectl apply -f ./k8s
-            kubectl set image deployment ${PROJECT_NAME} ${PROJECT_NAME}=gcr.io/${GCP_PROJECT}/${PROJECT_NAME}:$CIRCLE_SHA1
+            kubectl set image deployment ${PROJECT_NAME}-web ${PROJECT_NAME}-web=gcr.io/${GCP_PROJECT}/${PROJECT_NAME}:$CIRCLE_SHA1
 
 workflows:
   version: 2
