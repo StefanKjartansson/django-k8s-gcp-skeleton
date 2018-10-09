@@ -26,7 +26,7 @@ spec:
         # [START ${PROJECT_NAME}-web]
         - name: ${PROJECT_NAME}-web
           imagePullPolicy: Always
-          image: gcr.io/${PROJECT_ID}/${PROJECT_NAME}:master
+          image: gcr.io/${GCP_PROJECT}/${PROJECT_NAME}:master
           # The gunicorn command is kept in the kubernetes config
           # so that workers can be scaled without any code changes.
           command: ['gunicorn', '-b', '0.0.0.0:8000', '-w', '4', '--worker-class', 'gevent', '--timeout', '60', '--pythonpath', '$PWD', 'wsgi']
@@ -37,7 +37,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: ${PROJECT_NAME}-secret
-                  key: ${PROJECT_NAME}_secret_key
+                  key: secret_key
             - name: DB_HOST
               value: sqlproxy-service-${PROJECT_NAME}:5432
             - name: DB_NAME
@@ -78,14 +78,14 @@ spec:
         # will stay in pending state.
         - name: check-${PROJECT_NAME}
           imagePullPolicy: Always
-          image: gcr.io/${PROJECT_ID}/${PROJECT_NAME}:master
+          image: gcr.io/${GCP_PROJECT}/${PROJECT_NAME}:master
           command: ['python', 'manage.py', 'check']
           env:
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: ${PROJECT_NAME}-secret
-                  key: ${PROJECT_NAME}_secret_key
+                  key: secret_key
             - name: DB_HOST
               value: sqlproxy-service-${PROJECT_NAME}:5432
             - name: DB_NAME
@@ -106,14 +106,14 @@ spec:
         # will stay in pending state.
         - name: migrations-${PROJECT_NAME}
           imagePullPolicy: Always
-          image: gcr.io/${PROJECT_ID}/${PROJECT_NAME}:master
+          image: gcr.io/${GCP_PROJECT}/${PROJECT_NAME}:master
           command: ['python', 'manage.py', 'migrate']
           env:
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: ${PROJECT_NAME}-secret
-                  key: ${PROJECT_NAME}_secret_key
+                  key: secret_key
             - name: DB_HOST
               value: sqlproxy-service-${PROJECT_NAME}:5432
             - name: DB_NAME
