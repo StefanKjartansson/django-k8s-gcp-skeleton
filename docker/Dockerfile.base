@@ -9,15 +9,13 @@ RUN pip install --no-index --find-links=/app/wheelhouse -r /app/runtime-requirem
     && rm -rf /app/docker \
     && rm -rf /app/*.txt
 
-EXPOSE 8080
+EXPOSE 8000
 
 ENV DJANGO_SETTINGS_MODULE=project.settings
 
-# This contents of this key comes from a k8s secret
+# This contents of this key comes from a k8s secret.
+# If it's set, stackdriver tracing is enabled.
 ENV GOOGLE_APPLICATION_CREDENTIALS=/etc/keys/trace_key.json
-
-# Configure STACKDRIVER as the trace exporter.
-ENV TRACE_EXPORTER=STACKDRIVER
 
 # PATCH_IMAGE
 
