@@ -7,7 +7,7 @@ spec:
     - port: 8000
       targetPort: 8000
       protocol: TCP
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     service: ${PROJECT_NAME}-web-service
 ---
