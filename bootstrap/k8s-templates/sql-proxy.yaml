@@ -1,0 +1,57 @@
+# Creates the cloud-sql proxy deployment
+# 
+# The proxy is standalone and not run as
+# a sidecar alongside a regular deployment
+# because a sidecar is not available for 
+# init containers, which are used for running
+# migrations.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlproxy-service-${PROJECT_NAME}
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: sql-proxy
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: sql-proxy
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sql-proxy
+        app.kubernetes.io/name: sql-proxy
+        app.kubernetes.io/version: '1.11'
+        service: sql-proxy
+    spec:
+      containers:
+        # [START cloudsql-proxy]
+        - name: cloudsql-proxy
+          ports:
+            - name: port-${PROJECT_NAME}
+              containerPort: 5432
+          image: gcr.io/cloudsql-docker/gce-proxy:1.11
+          command:
+            [
+              '/cloud_sql_proxy',
+              '-instances=${GCP_PROJECT}:${CLUSTER_REGION}:${DB_INSTANCE_NAME}:${DB_NAME}=tcp:0.0.0.0:5432',
+              '-credential_file=/secrets/cloudsql/credentials.json',
+            ]
+          volumeMounts:
+            - name: cloudsql-instance-credentials
+              mountPath: /secrets/cloudsql
+              readOnly: true
+        # [END cloudsql-proxy]
+      # [START volumes]
+      volumes:
+        # The credentials for cloudsql
+        - name: cloudsql-instance-credentials
+          secret:
+            secretName: cloudsql-instance-credentials
+      # [END volumes]
