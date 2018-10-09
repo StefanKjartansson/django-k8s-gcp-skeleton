@@ -41,7 +41,7 @@ spec:
             - name: DB_HOST
               value: sqlproxy-service-${PROJECT_NAME}:5432
             - name: DB_NAME
-              value: ${PROJECT_NAME}
+              value: ${DB_NAME}
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
@@ -89,7 +89,7 @@ spec:
             - name: DB_HOST
               value: sqlproxy-service-${PROJECT_NAME}:5432
             - name: DB_NAME
-              value: ${PROJECT_NAME}
+              value: ${DB_NAME}
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
@@ -117,7 +117,7 @@ spec:
             - name: DB_HOST
               value: sqlproxy-service-${PROJECT_NAME}:5432
             - name: DB_NAME
-              value: ${PROJECT_NAME}
+              value: ${DB_NAME}
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
