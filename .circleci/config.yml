@@ -26,23 +26,12 @@ version: 2
 jobs:
   preflight:
     docker:
-      - image: busybox
+      - image: python:3.6
     steps:
       - run:
           name: Preflight Check
           command: |
-            required_vars=(GCP_AUTH GCP_PROJECT CLUSTER_NAME CLUSTER_REGION PROJECT_NAME)
-            missing_vars=()
-            for i in "${required_vars[@]}"
-            do
-                test -n "${!i:+y}" || missing_vars+=("$i")
-            done
-            if [ ${#missing_vars[@]} -ne 0 ]
-            then
-                echo "The following variables are not set, but should be:" >&2
-                printf ' %q\n' "${missing_vars[@]}" >&2
-                exit 1
-            fi
+            ./scripts/preflight.sh
   run_tests:
     <<: *defaults
     docker:
