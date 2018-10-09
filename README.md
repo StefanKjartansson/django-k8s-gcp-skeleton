@@ -1,4 +1,4 @@
-# djngo-k8s-gcp-skeleton
+# django-k8s-gcp-skeleton
 
 > Django project skeleton with a preconfigured CI/CD pipeline for [k8s][k8s] and [GCP][gcp].
 
