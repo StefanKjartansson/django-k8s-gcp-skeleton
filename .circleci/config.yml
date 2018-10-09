@@ -144,8 +144,8 @@ workflows:
   version: 2
   test-deploy:
     jobs:
-    - preflight
-    - run_tests:
+      - preflight
+      - run_tests:
           requires:
             - preflight
           filters:
