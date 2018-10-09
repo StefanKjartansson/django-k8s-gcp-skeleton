@@ -4,6 +4,7 @@ This file injects environment variables from CircleCi into the kubernetes
 configuration files
 """
 
+import base64
 import fileinput
 import os
 import sys
@@ -11,7 +12,10 @@ import sys
 
 def make_replacement(key, value):
     def replace(l):
-        return l.replace('${' + key + '}', value)
+        val = value
+        if key == 'SECRET_KEY':
+            val = base64.b64encode(value.encode()).decode()
+        return l.replace('${' + key + '}', val)
     return replace
 
 
