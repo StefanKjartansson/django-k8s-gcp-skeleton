@@ -32,7 +32,7 @@ jobs:
           name: Preflight Check
           command: |
             required_vars=(GCP_AUTH GCP_PROJECT CLUSTER_NAME CLUSTER_REGION PROJECT_NAME)
-			      missing_vars=()
+            missing_vars=()
             for i in "${required_vars[@]}"
             do
                 test -n "${!i:+y}" || missing_vars+=("$i")
@@ -42,7 +42,7 @@ jobs:
                 echo "The following variables are not set, but should be:" >&2
                 printf ' %q\n' "${missing_vars[@]}" >&2
                 exit 1
-      			fi
+            fi
   run_tests:
     <<: *defaults
     docker:
@@ -145,7 +145,7 @@ workflows:
   test-deploy:
     jobs:
     - preflight
-	  - run_tests:
+    - run_tests:
           requires:
             - preflight
           filters:
