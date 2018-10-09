@@ -155,7 +155,7 @@ create_instance() {
 create_proxyuser() {
   gcloud sql users create "$DB_USER" host \
     --instance="$DB_INSTANCE_NAME" \
-    --password="$DB_PAASSWORD"
+    --password="$DB_PASSWORD"
   log "proxy user created"
 }
 
