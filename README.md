@@ -15,65 +15,76 @@ It comes with bootstrapping scripts for setting up a GCP [Cloud SQL][cloud-sql] 
 
 ## Configuration
 
-### GCP Configuration
-
-Setup a GCP account, create a project and install the [gcloud][gcloud-sdk] command line tool. The gcloud tool needs to be configured for your project. Install [kubectl][kubectl]. GCP has up to date instructions for how to setup the cli tooling and creating a project. When all of that is up and running, the following resources need to be enabled/created in GCP's interface.
-
-1. In the Kubernetes engine interface, create a Kubernetes cluster. Note the cluster name and region.
-2. Enable Cloud SQL & Cloud Build
-3. Enable Stackdriver
-4. In the "IAM > Service accounts" interface create a service account for the database user with the following permissions:
-	* Cloud SQL Client
-5. Create a key and download it. Note the path.
-6. In the "IAM > Service accounts" interface create a service account for the circle user with the following permissions:
-	* Cloud Build Service Account
-	* Kubernetes Engine Admin
-	* Storage Admin
-	* Storage Object Creator
-	* Viewer
-7. Create a key and download it. Note the path.
-8. In the "IAM > Service accounts" interface create a service account for the tracing user with the following permissions:
-	* Cloud Trace Agent
-	* Logs Configuration Writer
-	* Logs Writer
-	* Monitoring Metric Writer
-9. Create a key and download it. Note the path.
-
-### Configuring the skeleton
+### 1. Clone the project
 
 1. Create a new repository on GitHub.
 	* CircleCI also [works with BitBucket](https://circleci.com/integrations/bitbucket/) but the instructions assume that GitHub will be used.
 2. Clone the skeleton into a local directory.
 3. Delete the `.git` folder, run `git init`, commit and push into your new repository.
-4. Configure the following environment variables, I recommend [direnv][direnv] for managing envvars but use whatever you're using already.
-	* `CLUSTER_NAME` - k8s cluster name, value from step 1 of GCP config.
-	* `CLUSTER_REGION` - k8s cluster region, value from step 1 of GCP config.
-	* `DB_INSTANCE_NAME` - Name of your database instance, note: this is not the database name.
-	* `DB_NAME` - Name of your database.
-	* `DB_PASSWORD` - Password for the proxy user
-	* `DB_USER` - User name for the proxy user
-	* `GCP_DB_KEY_PATH` - This should be the path to the file you downloaded in step 5 of GCP configuration.
-	* `GCP_PROJECT` - Id of your GCP project.
-	* `GCP_TRACE_KEY_PATH` - This should be the path to the file you downloaded in step 9 of GCP configuration.
-	* `PROJECT_NAME` - Name of your project.
-	* `SECRET_KEY` - Your Django secret key.
-5. In the project root run: `$ ./bootstrap/init.sh`. This merges your environment variables with k8s deployment & configuration templates. You should now have a k8s folder inside the project root and bootstrap directory.
-	* You can add further secrets to `bootstrap/k8s/secret.yaml`, be default it only contains the Django secret key.
-	* You can safely delete the `k8s-templates` directories. They will not be used again.
-6. Authenticate gcloud, run `$ gcloud auth login`
-7. Run `$ gcloud config set project $GCP_PROJECT`
-8. In the project root run: `$ ./bootstrap/configure-cluster.sh`. This script does the following:
-	* Creates a trace key from the `$GCP_TRACE_KEY_PATH`.
-	* Creates a k8s with the Django secret key.
-	* Creates credentials secret for the sql proxy.
-	* Creates db connection credentials secret.
-	* Creates a PostgreSQL instance.
-	* Creates a user for the instance.
-	* Creates a database on the instance.
-	* Creates a sql-proxy deployment.
-9. Commit the k8s directories and push to the repository.
 
-### Configuring CircleCI
+### 2. Create a GCP Project
+
+Setup a GCP account, create a project and install the [gcloud][gcloud-sdk] command line tool. The gcloud tool needs to be configured for your project. Install [kubectl][kubectl]. GCP has up to date instructions for how to setup the cli tooling and creating a project.
+
+### 3. Configure environment variables
+
+Configure the following environment variables, I recommend [direnv][direnv] for managing environment variables but use whatever you're using already.
+
+```bash
+# The name you want to have on your k8s cluster
+export CLUSTER_NAME=my-example-cluster
+# The GCP region you want to use
+export CLUSTER_REGION=europe-west3
+# Name of your database instance, note: this is not the database name.
+export DB_INSTANCE_NAME=my-psql
+# The name of your database
+export DB_NAME=my-example-db
+# The name of your database user
+export DB_USER=exampledbuser
+# The password of your database user
+export DB_PASSWORD=verysecret
+# The id of the GCP project you created in the first step
+export GCP_PROJECT=example-foobar-12232
+# The name of your project
+export PROJECT_NAME=myexample
+# Your django secret key
+export SECRET_KEY=somethingsecret
+```
+
+### 4. Provision GCP services
+
+When the previous steps have been completed, run the following in your shell with the environment variables from the above step sourced.
+
+```bash
+# Login to GCP
+$ gcloud auth login
+# Enable the required GCP services
+$ ./bootstrap/enable.sh
+# Initialize the k8s application templates 
+$ ./bootstrap/init.sh
+# Create a k8s cluster
+$ ./bootstrap/create-cluster.sh
+# Create a DB 
+$ ./bootstrap/setup-database.sh
+# Create & configure service accounts
+$ ./bootstrap/create-service-accounts.sh
+```
+
+You should now have a k8s cluster with a sql-proxy workload & service running.
+
+### 4. Cleanup the repository
+
+The scripts should have created k8s folders from the templates. Delete the k8s-templates folders and commit the change. Add the k8s folders the init script created and commit them.  
+
+Copy the CI key:
+
+```bash
+cat ./bootstrap/keys/cibuild.json|base64
+```
+
+You can now delete the `./bootstrap/keys` folder.
+
+### 5. Configuring CircleCI
 
 All steps need to be configured inside CircleCI's interface.
 
@@ -83,7 +94,7 @@ All steps need to be configured inside CircleCI's interface.
 4. The first build will fail the preflight check because the environment variables have not been configured.
 5. In the build interface, press the settings configuration button
 6. Add the following environment variables:
-	* `GCP_AUTH` - This is the base64 encoded value of the circle service account key you downloaded in step 7 of the GCP configuration. You can base base64 encode it with `cat name-of-key.json|base64`.
+	* `GCP_AUTH` - This is the value of the base64 encoded `cibuild.json` key.
 	* `GCP_PROJECT` - The id of the GCP project
   	* `CLUSTER_NAME` - Name of the kubernetes cluster
   	* `CLUSTER_REGION` - Name of the kubernetes cluster region
@@ -93,7 +104,8 @@ All steps need to be configured inside CircleCI's interface.
 
 ## Next Steps
 
-Add a DATABASE_URL pointing to a local database and start working on your project.
+* Add a DATABASE_URL pointing to a local database and start working on your project.
+* You can delete the bootstrap folder, it's not needed anymore.
 
 ## Release History
 
