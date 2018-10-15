@@ -51,41 +51,6 @@ preflight_check() {
 }
 
 #######################################
-# Enables a GCP service
-# Arguments:
-#   None
-# Returns:
-#   None
-#######################################
-_enable_service() {
-  gcloud services enable "$1"
-  log "Enabled service '$1'"
-}
-
-#######################################
-# Enables the required services
-# Arguments:
-#   None
-# Returns:
-#   None
-#######################################
-enable_services() {
-  services=(
-    cloudbuild.googleapis.com
-    cloudtrace.googleapis.com
-    container.googleapis.com
-    containerregistry.googleapis.com
-    logging.googleapis.com
-    sql-component.googleapis.com
-    sqladmin.googleapis.com
-  )
-  for i in "${services[@]}"
-  do
-    _enable_service "$i"
-  done
-}
-
-#######################################
 # Creates a K8s cluster
 # Arguments:
 #   None
@@ -115,5 +80,4 @@ create_cluster() {
 }
 
 preflight_check
-enable_services
 create_cluster
