@@ -9,7 +9,7 @@ spec:
       protocol: TCP
   type: LoadBalancer
   selector:
-    service: ${PROJECT_NAME}-web-service
+    service: ${PROJECT_NAME}-web
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -27,9 +27,7 @@ spec:
         - name: ${PROJECT_NAME}-web
           imagePullPolicy: Always
           image: gcr.io/${GCP_PROJECT}/${PROJECT_NAME}:master
-          # The gunicorn command is kept in the kubernetes config
-          # so that workers can be scaled without any code changes.
-          command: ['gunicorn', '-b', '0.0.0.0:8000', '-w', '4', '--worker-class', 'gevent', '--timeout', '60', '--pythonpath', '$PWD', 'wsgi']
+          command: ['python', 'manage.py', 'runserver', '0.0.0.0:8000']
           ports:
             - containerPort: 8000
           env:
